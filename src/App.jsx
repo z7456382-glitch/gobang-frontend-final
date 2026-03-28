@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { io } from 'socket.io-client'
 
 // 🔗 已經換成你的雲端 Render 網址！
-const socket = io('https://gobang-server.onrender.com');
+const socket = io('https://gobang-backend-final.onrender.com');
 const STONE_SOUND = '/stone.mp3';
 
 function App() {
