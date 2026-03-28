@@ -1,158 +1,135 @@
-import { useState, useEffect, useRef } from 'react'
-import { io } from 'socket.io-client'
+import React, { useState } from 'react';
+import './App.css';
 
-// 🔗 已經換成你的雲端 Render 網址！
-const socket = io('https://gobang-backend-final.onrender.com');
-const STONE_SOUND = '/stone.mp3';
+// --- 設定 ---
+const BOARD_SIZE = 15;
+const BACKEND_URL = "https://gobang-backend-final.onrender.com"; // 確保這是你的 Render 網址
 
 function App() {
-  const [board, setBoard] = useState(Array(225).fill(null));
-  const [isBlackNext, setIsBlackNext] = useState(true);
+  // 初始化棋盤 (15x15, 0:空, 1:黑, 2:白)
+  const [board, setBoard] = useState(
+    Array(BOARD_SIZE).fill(0).map(() => Array(BOARD_SIZE).fill(0))
+  );
+  const [isAiThinking, setIsAiThinking] = useState(false); // 鎖定棋盤不讓玩家亂點
   const [winner, setWinner] = useState(null);
-  const [myRole, setMyRole] = useState(null); 
-  const [isHost, setIsHost] = useState(false);
-  const [gameStarted, setGameStarted] = useState(false);
 
-  useEffect(() => {
-    socket.on('player-info', (data) => {
-      setMyRole(data.role);
-      setIsHost(data.isHost);
-      setGameStarted(data.gameStarted);
-    });
+  // 當玩家 (黑棋) 點擊棋盤
+  const handleCellClick = async (row, col) => {
+    if (board[row][col] !== 0 || isAiThinking || winner) return; // 鎖定或有子則不能點
 
-    socket.on('game-start-broadcast', () => {
-      setGameStarted(true);
-    });
-
-    socket.on('receive-move', ({ index, color }) => {
-      executeMove(index, color);
-    });
-
-    socket.on('game-reset-broadcast', () => {
-      setBoard(Array(225).fill(null));
-      setIsBlackNext(true);
-      setWinner(null);
-      setGameStarted(false);
-    });
-
-    return () => {
-      socket.off('player-info');
-      socket.off('game-start-broadcast');
-      socket.off('receive-move');
-      socket.off('game-reset-broadcast');
-    };
-  }, [board]);
-
-  const executeMove = (i, color) => {
-    if (board[i] || winner) return;
-    const audio = new Audio(STONE_SOUND);
-    audio.play().catch(() => {});
-
-    const newBoard = [...board];
-    newBoard[i] = color;
+    // 1. 玩家下黑棋 (1)
+    const newBoard = board.map(row => [...row]);
+    newBoard[row][col] = 1;
     setBoard(newBoard);
-
-    const result = checkWinner(newBoard, i);
-    if (result) {
-      setWinner(result);
-    } else {
-      setIsBlackNext(color === 'B' ? false : true);
+    
+    // 簡單的勝負判斷 (黑棋下完後)
+    if (checkWin(newBoard, row, col)) {
+      setWinner('🎉 恭喜！你（黑棋）贏了！');
+      return;
     }
-  };
 
-  const handleClick = (i) => {
-    if (!gameStarted || board[i] || winner) return;
-    const currentTurnColor = isBlackNext ? 'B' : 'W';
-    if (myRole === currentTurnColor) {
-      socket.emit('send-move', { index: i, color: myRole });
-    }
-  };
+    // 2. 呼叫後端 API 問 AI (白棋) 的下一步
+    setIsAiThinking(true); // 鎖定棋盤
+    console.log("🤖 電腦正在思考中...");
 
-  const handleStartGame = () => socket.emit('start-game-request');
-  const handleResetGame = () => socket.emit('reset-game-request');
-
-  const checkWinner = (squares, lastIndex) => {
-    const size = 15;
-    const x = lastIndex % size;
-    const y = Math.floor(lastIndex / size);
-    const color = squares[lastIndex];
-    const directions = [[1, 0], [0, 1], [1, 1], [1, -1]];
-    for (let [dx, dy] of directions) {
-      let count = 1;
-      [[dx, dy], [-dx, -dy]].forEach(([stepX, stepY]) => {
-        for (let i = 1; i < 5; i++) {
-          const nx = x + stepX * i; const ny = y + stepY * i;
-          const idx = ny * size + nx;
-          if (nx >= 0 && nx < size && ny >= 0 && ny < size && squares[idx] === color) count++;
-          else break;
-        }
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/ai-move`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ board: newBoard, playerColor: 2 }) // AI 是白棋 (2)
       });
-      if (count >= 5) return color;
+
+      if (!response.ok) throw new Error("API 回傳錯誤");
+
+      const aiMove = await response.json(); // 接收 coordinates {"row": x, "col": y}
+
+      // 3. AI 下白棋 (2)
+      if (aiMove && typeof aiMove.row === 'number') {
+        setTimeout(() => { // 稍微延遲一下，讓使用者感覺 AI 在思考
+          const finalBoard = newBoard.map(row => [...row]);
+          finalBoard[aiMove.row][aiMove.col] = 2;
+          setBoard(finalBoard);
+
+          // 簡單的勝負判斷 (白棋下完後)
+          if (checkWin(finalBoard, aiMove.row, aiMove.col)) {
+            setWinner('🤖 可惡！電腦（白棋）贏了！');
+          }
+          setIsAiThinking(false); // 解鎖棋盤
+        }, 1000); // 延遲 1 秒
+      } else {
+        throw new Error("AI 回傳了無效的座標");
+      }
+
+    } catch (error) {
+      console.error("❌ 連線 AI 失敗:", error);
+      alert("AI 思考好像斷線了，請重新整理頁面。");
+      setIsAiThinking(false);
     }
-    return null;
   };
 
+  // --- 簡易五子棋勝負判斷邏輯 ---
+  const checkWin = (currentBoard, r, c) => {
+    const color = currentBoard[r][c];
+    if (color === 0) return false;
+    const directions = [
+      [1, 0], [0, 1], [1, 1], [1, -1] // 垂直, 水平, 斜右下, 斜左下
+    ];
+    for (const [dr, dc] of directions) {
+      let count = 1;
+      // 正向檢查
+      for (let i = 1; i < 5; i++) {
+        const nr = r + dr * i, nc = c + dc * i;
+        if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && currentBoard[nr][nc] === color) count++;
+        else break;
+      }
+      // 反向檢查
+      for (let i = 1; i < 5; i++) {
+        const nr = r - dr * i, nc = c - dc * i;
+        if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && currentBoard[nr][nc] === color) count++;
+        else break;
+      }
+      if (count >= 5) return true;
+    }
+    return false;
+  };
+
+  const resetGame = () => {
+    setBoard(Array(BOARD_SIZE).fill(0).map(() => Array(BOARD_SIZE).fill(0)));
+    setWinner(null);
+    setIsAiThinking(false);
+  };
+
+  // --- 渲染 UI ---
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-[#ecebe4] p-4 select-none font-sans">
-      <div className="mb-6 text-center">
-        <h1 className="text-3xl font-black text-[#2c2c2c] mb-2 tracking-tighter">GOBANG ONLINE</h1>
-        <div className="flex gap-4 bg-white/80 px-6 py-2 rounded-full shadow-md items-center">
-          <span className="font-bold text-sm">
-            角色: {myRole === 'B' ? '⚫ 黑棋' : myRole === 'W' ? '⚪ 白棋' : '連線中...'} 
-            {isHost && <span className="ml-2 text-red-500">[房主]</span>}
-          </span>
-          <div className="w-[2px] h-4 bg-gray-300"></div>
-          <span className="text-sm font-medium">
-             狀態: {!gameStarted ? '等待開局' : winner ? '對局結束' : `回合: ${isBlackNext ? '黑' : '白'}`}
-          </span>
-        </div>
-      </div>
-
-      <div className="relative bg-[#eecfa1] shadow-2xl border-[12px] border-[#a67c52]" style={{ width: '600px', height: '600px' }}>
-        <div className="absolute inset-0 grid grid-cols-14 grid-rows-14 pointer-events-none" style={{ padding: '20px' }}>
-          {Array(196).fill(null).map((_, i) => (
-            <div key={i} className="border-t border-l border-[#8b6b4a]/60"></div>
-          ))}
-          <div className="absolute top-[20px] bottom-[20px] right-[20px] border-r border-[#8b6b4a]/60"></div>
-          <div className="absolute left-[20px] right-[20px] bottom-[20px] border-b border-[#8b6b4a]/60"></div>
-        </div>
-
-        <div className="absolute inset-0 grid grid-cols-15 grid-rows-15 z-10">
-          {board.map((cell, i) => (
-            <div key={i} onClick={() => handleClick(i)} className="relative flex items-center justify-center cursor-pointer group">
-              {cell && (
-                <div className={`absolute w-[80%] h-[80%] rounded-full shadow-xl top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 ${cell === 'B' ? 'bg-[#1a1a1a]' : 'bg-[#f8f8f8] border border-gray-300'}`} />
-              )}
-              {!cell && !winner && gameStarted && myRole !== 'spectator' && (
-                <div className="absolute w-2 h-2 bg-black/10 rounded-full opacity-0 group-hover:opacity-100 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
-              )}
-            </div>
-          ))}
-        </div>
-        
-        {!gameStarted && (
-          <div className="absolute inset-0 z-20 bg-black/5 flex items-center justify-center backdrop-blur-[1px]">
-             {isHost ? (
-               <button onClick={handleStartGame} className="px-10 py-4 bg-[#2c2c2c] text-white text-xl font-bold rounded-full shadow-2xl hover:bg-black transition-all">
-                 開始遊戲
-               </button>
-             ) : (
-               <div className="bg-white/90 px-6 py-3 rounded-lg font-bold shadow-lg">等待房主開始...</div>
-             )}
+    <div className="App">
+      <h1 className="text-3xl font-bold my-4">五子棋 (PVE vs Gemini AI)</h1>
+      <div className="status-bar mb-4">
+        {winner ? (
+          <div className="text-xl font-bold text-red-600">
+            {winner}
+            <button onClick={resetGame} className="ml-4 px-4 py-1 bg-blue-500 text-white rounded">重新開始</button>
           </div>
+        ) : (
+          <p className="text-lg">我是 ⚫ 黑棋 | {isAiThinking ? '🤖 電腦正在思考中...' : '👉 請你下子'}</p>
         )}
       </div>
-
-      {winner && (
-        <div className="mt-6 flex flex-col items-center gap-4">
-          <div className="text-2xl font-black text-[#2c2c2c]">🎉 {winner === 'B' ? '黑棋' : '白棋'} 獲勝！</div>
-          {isHost && (
-            <button onClick={handleResetGame} className="px-8 py-2 bg-red-600 text-white font-bold rounded-full shadow-lg hover:bg-red-700 transition-all">
-              房主重置遊戲
-            </button>
-          )}
-        </div>
-      )}
+      <div className="board">
+        {board.map((row, rowIndex) => (
+          <div key={rowIndex} className="board-row">
+            {row.map((cell, colIndex) => (
+              <div
+                key={colIndex}
+                className={`cell ${isAiThinking ? 'locked' : ''}`}
+                onClick={() => handleCellClick(rowIndex, colIndex)}
+              >
+                {cell === 1 && <div className="stone black"></div>}
+                {cell === 2 && <div className="stone white"></div>}
+              </div>
+            ))}
+          </div>
+        )
+        )}
+      </div>
     </div>
   );
 }
