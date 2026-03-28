@@ -5,34 +5,47 @@
   text-align: center;
 }
 
+/* 狀態列 */
+.status-bar {
+  margin-bottom: 1.5rem;
+  padding: 10px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+/* 棋盤主體 (交叉點模式) */
 .board {
   display: inline-block;
-  background-color: #f3e5ab; /* 棋盤木頭色 */
-  border: 2px solid #a1887f;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-  padding: 10px;
+  background-color: #f3e5ab; /* 木紋色 */
+  border: 1px solid #c7b299;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  padding: 0; /* 交叉點模式不需要內距 */
 }
 
 .board-row {
   display: flex;
 }
 
+/* 棋盤格子 (交叉點模式) */
 .cell {
   width: 32px;
   height: 32px;
-  border: 1px solid #c7b299;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   position: relative;
+  box-sizing: border-box;
 }
 
-.cell:hover:not(.locked) {
-  background-color: rgba(0,0,0,0.05);
+/* 鎖定棋盤時顯示「等待」游標 */
+.cell.locked {
+  cursor: wait;
 }
 
-/* 棋盤格子線的交叉點 (可選：美化用) */
+/* --- 交叉點線條設定 (關鍵) --- */
+/* 水平線 */
 .cell::before {
   content: "";
   position: absolute;
@@ -41,7 +54,10 @@
   background-color: #c7b299;
   top: 50%;
   left: 0;
+  z-index: 1; /* 線條在格子底部 */
 }
+
+/* 垂直線 */
 .cell::after {
   content: "";
   position: absolute;
@@ -50,21 +66,23 @@
   background-color: #c7b299;
   top: 0;
   left: 50%;
+  z-index: 1; /* 線條在格子底部 */
 }
 
-/* 鎖定棋盤效果 */
-.cell.locked {
-  cursor: wait;
-}
+/* 棋盤四邊的邊界線 (可選：美化用) */
+.board-row:first-child .cell::after { top: 50%; height: 50%; } /* 上邊界 */
+.board-row:last-child .cell::after { top: 0; height: 50%; } /* 下邊界 */
+.cell:first-child::before { left: 50%; width: 50%; } /* 左邊界 */
+.cell:last-child::before { left: 0; width: 50%; } /* 右邊界 */
 
-/* 棋子樣式 */
+/* --- 棋子樣式 (交叉點模式) --- */
 .stone {
   width: 28px;
   height: 28px;
   border-radius: 50%;
   position: absolute;
-  z-index: 10;
-  box-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+  z-index: 10; /* 棋子在線條上方 */
+  box-shadow: 2px 2px 4px rgba(0,0,0,0.35); /* 增加陰影立體感 */
 }
 
 .stone.black {
