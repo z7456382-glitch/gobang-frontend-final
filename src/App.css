@@ -1,23 +1,70 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+/* src/App.css */
+
+/* 全域重設，確保對齊 */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
+#root {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #f0f0f0; /* 全域淺灰色背景 */
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+/* 遊戲主容器 */
+.App {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* 頂部標題 */
+h1 {
+  font-size: 2.5rem;
+  color: #333;
+  margin-bottom: 1rem;
+  font-weight: 700;
+}
+
+/* 狀態列 */
 .status-bar {
   margin-bottom: 1.5rem;
-  padding: 10px;
-  background-color: #f8f9fa;
-  border-radius: 8px;
+  padding: 10px 20px;
+  background-color: white;
+  border-radius: 50px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  font-size: 1.1rem;
+  color: #555;
 }
 
-/* 棋盤主體 */
+.status-bar strong {
+  color: #000;
+}
+
+/* --- 棋盤外框 (實現範例圖的立體木框感) --- */
+.board-container {
+  padding: 12px; /* 木框厚度 */
+  background-color: #8d6e63; /* 深棕色木框 */
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.3); /* 整體陰影 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* --- 棋盤主體 (交叉點模式核心) --- */
 .board {
   display: inline-block;
-  background-color: #f3e5ab; /* 漂亮的木紋黃 */
-  border: 2px solid #a1887f;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  background-color: #f3e5ab; /* 木紋黃 */
+  /* 增加細微的木紋背景圖 (選用，增加質感) */
+  background-image: url('https://www.transparenttextures.com/patterns/wood-pattern.png');
+  border: 1px solid #a1887f; /* 棋盤內細邊框 */
   padding: 0;
 }
 
@@ -25,16 +72,28 @@
   display: flex;
 }
 
-/* 棋盤格子 (關鍵：讓線條交叉在中心) */
+/* --- 棋盤格子 (關鍵：讓線條交叉在中心) --- */
 .cell {
-  width: 32px;
-  height: 32px;
+  width: 36px; /* 格子大小 */
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  position: relative;
+  position: relative; /* 為了讓線條定位 */
 }
+
+/* 鎖定棋盤時顯示「等待」游標 */
+.cell.locked {
+  cursor: wait;
+}
+
+/* 滑鼠懸停時的微小高亮效果 */
+.cell:hover:not(.locked):not(:has(.stone)) {
+  background-color: rgba(141, 110, 99, 0.1);
+}
+
+/* --- 交叉點線條設定 (最核心部分) --- */
 
 /* 水平線 */
 .cell::before {
@@ -42,9 +101,11 @@
   position: absolute;
   width: 100%;
   height: 1px;
-  background-color: #8d6e63; /* 深棕色線條 */
-  top: 50%;
+  background-color: rgba(161, 136, 127, 0.7); /* 線條顏色 */
+  top: 50%; /* 垂直置中 */
   left: 0;
+  transform: translateY(-50%);
+  z-index: 1; /* 線條在格子底部 */
 }
 
 /* 垂直線 */
@@ -53,30 +114,22 @@
   position: absolute;
   width: 1px;
   height: 100%;
-  background-color: #8d6e63;
+  background-color: rgba(161, 136, 127, 0.7); /* 線條顏色 */
   top: 0;
-  left: 50%;
+  left: 50%; /* 水平置中 */
+  transform: translateX(-50%);
+  z-index: 1; /* 線條在格子底部 */
 }
 
-/* 棋子樣式 (絕對定位在交叉點上) */
+/* --- 棋子樣式 (實現範例圖的立體感與陰影) --- */
 .stone {
-  width: 28px;
-  height: 28px;
+  width: 32px; /* 棋子大小，略小於格子 */
+  height: 32px;
   border-radius: 50%;
-  position: absolute;
-  z-index: 10;
-  box-shadow: 2px 2px 5px rgba(0,0,0,0.4);
+  position: absolute; /* 絕對定位，壓在線條上 */
+  z-index: 10; /* 棋子在線條上方 */
+  box-shadow: 2px 4px 6px rgba(0,0,0,0.4); /* 完美的立體陰影 */
+  transition: all 0.1s ease-in-out;
 }
 
-.stone.black {
-  background-color: #1a1a1a;
-  background-image: radial-gradient(circle at 30% 30%, #555, #1a1a1a);
-}
-
-.stone.white {
-  background-color: #fff;
-  background-image: radial-gradient(circle at 30% 30%, #fff, #ccc);
-  border: 1px solid #bbb;
-}
-
-.cell.locked { cursor: wait; }
+/* 黑
