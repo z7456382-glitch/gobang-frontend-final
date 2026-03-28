@@ -1,40 +1,24 @@
 import React, { useState } from 'react';
-import './App.css';
 
-// --- 基礎設定 ---
 const BOARD_SIZE = 15;
-// 請確保這是你的 Render 後端正式網址
 const BACKEND_URL = "https://gobang-backend-final.onrender.com"; 
 
 function App() {
-  // 1. 初始化棋盤 (15x15 矩陣, 0:空, 1:黑, 2:白)
-  const [board, setBoard] = useState(
-    Array(BOARD_SIZE).fill(0).map(() => Array(BOARD_SIZE).fill(0))
-  );
-  const [isAiThinking, setIsAiThinking] = useState(false); // 鎖定棋盤防止連點
+  const [board, setBoard] = useState(Array(BOARD_SIZE).fill(0).map(() => Array(BOARD_SIZE).fill(0)));
+  const [isAiThinking, setIsAiThinking] = useState(false);
   const [winner, setWinner] = useState(null);
 
-  // --- 2. 勝負判斷邏輯 ---
   const checkWin = (currentBoard, r, c) => {
     const color = currentBoard[r][c];
     if (color === 0) return false;
-    
-    const directions = [
-      [0, 1],  // 水平
-      [1, 0],  // 垂直
-      [1, 1],  // 斜右下
-      [1, -1]  // 斜左下
-    ];
-
+    const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
     for (const [dr, dc] of directions) {
       let count = 1;
-      // 正向延伸
       for (let i = 1; i < 5; i++) {
         const nr = r + dr * i, nc = c + dc * i;
         if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && currentBoard[nr][nc] === color) count++;
         else break;
       }
-      // 反向延伸
       for (let i = 1; i < 5; i++) {
         const nr = r - dr * i, nc = c - dc * i;
         if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && currentBoard[nr][nc] === color) count++;
@@ -45,22 +29,13 @@ function App() {
     return false;
   };
 
-  // --- 3. 玩家點擊處理 ---
   const handleCellClick = async (row, col) => {
-    // 如果位置已有棋子、AI 正在思考、或已有人獲勝，則不執行
     if (board[row][col] !== 0 || isAiThinking || winner) return;
-
-    // A. 玩家下黑棋 (1)
     const newBoard = board.map(r => [...r]);
     newBoard[row][col] = 1;
     setBoard(newBoard);
-    
-    if (checkWin(newBoard, row, col)) {
-      setWinner('🎉 恭喜！你贏了！');
-      return;
-    }
+    if (checkWin(newBoard, row, col)) { setWinner('🎉 你贏了！'); return; }
 
-    // B. 呼叫 AI (白棋 2)
     setIsAiThinking(true);
     try {
       const response = await fetch(`${BACKEND_URL}/api/ai-move`, {
@@ -68,72 +43,59 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ board: newBoard, playerColor: 2 })
       });
-
-      if (!response.ok) throw new Error("AI 伺服器連線失敗");
-
       const aiMove = await response.json();
-
-      // C. AI 下白棋
       if (aiMove && typeof aiMove.row === 'number') {
-        // 稍微延遲 600ms，讓 AI 看起來像在思考，視覺較自然
         setTimeout(() => {
           const finalBoard = newBoard.map(r => [...r]);
           finalBoard[aiMove.row][aiMove.col] = 2;
           setBoard(finalBoard);
-
-          if (checkWin(finalBoard, aiMove.row, aiMove.col)) {
-            setWinner('🤖 可惡！AI 贏了！');
-          }
+          if (checkWin(finalBoard, aiMove.row, aiMove.col)) setWinner('🤖 AI 贏了！');
           setIsAiThinking(false);
         }, 600);
       }
-    } catch (error) {
-      console.error("AI Error:", error);
-      alert("AI 思考好像斷線了，請確認後端是否正常運作。");
-      setIsAiThinking(false);
-    }
+    } catch (e) { setIsAiThinking(false); }
   };
 
-  // 重新開始遊戲
-  const resetGame = () => {
-    setBoard(Array(BOARD_SIZE).fill(0).map(() => Array(BOARD_SIZE).fill(0)));
-    setWinner(null);
-    setIsAiThinking(false);
-  };
-
-  // --- 4. 畫面渲染 ---
   return (
-    <div className="App">
-      <h1>GOBANG ONLINE</h1>
+    <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
+      <h1 className="text-4xl font-bold mb-6 text-gray-800">GOBANG ONLINE</h1>
       
-      <div className="status-bar">
+      <div className="mb-6 px-6 py-2 bg-white rounded-full shadow-md text-lg">
         {winner ? (
-          <div className="winner-msg">
-            <strong>{winner}</strong>
-            <button onClick={resetGame} style={{marginLeft: '15px', cursor: 'pointer'}}>重新開始</button>
+          <div className="flex items-center gap-4">
+            <span className="font-bold text-red-600">{winner}</span>
+            <button onClick={() => {setBoard(Array(BOARD_SIZE).fill(0).map(() => Array(BOARD_SIZE).fill(0))); setWinner(null);}} className="text-sm bg-blue-500 text-white px-3 py-1 rounded">重開</button>
           </div>
         ) : (
-          <span>
-            角色：⚫ <strong>黑棋 [房主]</strong> | 
-            狀態：{isAiThinking ? ' 🤖 AI 正在思考中...' : ' 🟢 輪到你下子'}
-          </span>
+          <span>{isAiThinking ? '🤖 AI 思考中...' : '🟢 輪到你下子'}</span>
         )}
       </div>
 
-      {/* 棋盤外框容器 */}
-      <div className="board-container">
-        <div className="board">
-          {board.map((row, rowIndex) => (
-            <div key={rowIndex} className="board-row">
-              {row.map((cell, colIndex) => (
+      {/* 棋盤外框 (深木色) */}
+      <div className="p-3 bg-[#8d6e63] rounded-lg shadow-2xl">
+        <div className="bg-[#f3e5ab] border border-[#a1887f] inline-block">
+          {board.map((row, rIdx) => (
+            <div key={rIdx} className="flex">
+              {row.map((cell, cIdx) => (
                 <div
-                  key={colIndex}
-                  className={`cell ${isAiThinking ? 'locked' : ''}`}
-                  onClick={() => handleCellClick(rowIndex, colIndex)}
+                  key={cIdx}
+                  onClick={() => handleCellClick(rIdx, cIdx)}
+                  className="relative w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center cursor-pointer"
                 >
-                  {/* 棋子渲染 */}
-                  {cell === 1 && <div className="stone black"></div>}
-                  {cell === 2 && <div className="stone white"></div>}
+                  {/* 水平線 */}
+                  <div className="absolute w-full h-[1px] bg-[#a1887f] z-0"></div>
+                  {/* 垂直線 */}
+                  <div className="absolute h-full w-[1px] bg-[#a1887f] z-0"></div>
+                  
+                  {/* 棋子 */}
+                  {cell !== 0 && (
+                    <div className={`
+                      w-7 h-7 sm:w-9 sm:h-9 rounded-full z-10 shadow-lg
+                      ${cell === 1 
+                        ? 'bg-gradient-to-br from-gray-700 to-black' 
+                        : 'bg-gradient-to-br from-white to-gray-200 border border-gray-300'}
+                    `}></div>
+                  )}
                 </div>
               ))}
             </div>
