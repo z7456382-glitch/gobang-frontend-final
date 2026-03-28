@@ -5,29 +5,27 @@
   text-align: center;
 }
 
-/* 狀態列 */
 .status-bar {
   margin-bottom: 1.5rem;
   padding: 10px;
   background-color: #f8f9fa;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
-/* 棋盤主體 (交叉點模式) */
+/* 棋盤主體 */
 .board {
   display: inline-block;
-  background-color: #f3e5ab; /* 木紋色 */
-  border: 1px solid #c7b299;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  padding: 0; /* 交叉點模式不需要內距 */
+  background-color: #f3e5ab; /* 漂亮的木紋黃 */
+  border: 2px solid #a1887f;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  padding: 0;
 }
 
 .board-row {
   display: flex;
 }
 
-/* 棋盤格子 (交叉點模式) */
+/* 棋盤格子 (關鍵：讓線條交叉在中心) */
 .cell {
   width: 32px;
   height: 32px;
@@ -36,25 +34,17 @@
   justify-content: center;
   cursor: pointer;
   position: relative;
-  box-sizing: border-box;
 }
 
-/* 鎖定棋盤時顯示「等待」游標 */
-.cell.locked {
-  cursor: wait;
-}
-
-/* --- 交叉點線條設定 (關鍵) --- */
 /* 水平線 */
 .cell::before {
   content: "";
   position: absolute;
   width: 100%;
   height: 1px;
-  background-color: #c7b299;
+  background-color: #8d6e63; /* 深棕色線條 */
   top: 50%;
   left: 0;
-  z-index: 1; /* 線條在格子底部 */
 }
 
 /* 垂直線 */
@@ -63,35 +53,30 @@
   position: absolute;
   width: 1px;
   height: 100%;
-  background-color: #c7b299;
+  background-color: #8d6e63;
   top: 0;
   left: 50%;
-  z-index: 1; /* 線條在格子底部 */
 }
 
-/* 棋盤四邊的邊界線 (可選：美化用) */
-.board-row:first-child .cell::after { top: 50%; height: 50%; } /* 上邊界 */
-.board-row:last-child .cell::after { top: 0; height: 50%; } /* 下邊界 */
-.cell:first-child::before { left: 50%; width: 50%; } /* 左邊界 */
-.cell:last-child::before { left: 0; width: 50%; } /* 右邊界 */
-
-/* --- 棋子樣式 (交叉點模式) --- */
+/* 棋子樣式 (絕對定位在交叉點上) */
 .stone {
   width: 28px;
   height: 28px;
   border-radius: 50%;
   position: absolute;
-  z-index: 10; /* 棋子在線條上方 */
-  box-shadow: 2px 2px 4px rgba(0,0,0,0.35); /* 增加陰影立體感 */
+  z-index: 10;
+  box-shadow: 2px 2px 5px rgba(0,0,0,0.4);
 }
 
 .stone.black {
   background-color: #1a1a1a;
-  background-image: radial-gradient(circle at 30% 30%, #444, #1a1a1a);
+  background-image: radial-gradient(circle at 30% 30%, #555, #1a1a1a);
 }
 
 .stone.white {
   background-color: #fff;
-  background-image: radial-gradient(circle at 30% 30%, #fff, #ddd);
-  border: 1px solid #ccc;
+  background-image: radial-gradient(circle at 30% 30%, #fff, #ccc);
+  border: 1px solid #bbb;
 }
+
+.cell.locked { cursor: wait; }
